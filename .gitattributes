@@ -1,0 +1,28 @@
+
+# Set default behaviour and perform LF normalization, in case users don't have core.autocrlf set.
+* text=auto
+
+# Declare files that will always have LF
+*.sh text eol=lf
+
+# Declare files that will always have CRLF line endings on checkout.
+*.csproj text merge=union eol=crlf
+*.sln    text merge=union eol=crlf
+*.vcxproj text merge=union eol=crlf
+
+*.cs     text diff=csharp eol=lf
+*.java   text diff=java eol=lf
+*.html   text diff=html eol=lf
+*.py     text diff=python eol=lf
+*.pl     text diff=perl eol=lf
+*.pm     text diff=perl eol=lf
+*.css    text eol=lf
+*.js     text eol=lf
+*.sql    text eol=lf
+
+*.bat    text eol=crlf
+*.cmd text eol=crlf
+*.doc diff=word
+*.png diff=exif
+*.jpg diff=exif
+*.bmp diff=exif
