@@ -13,7 +13,6 @@ test-patch
 *.eml
 .idea
 .idea_modules
-.pydevproject
 
 # Structure101
 *.hsp
@@ -31,7 +30,6 @@ _site
 # C extensions
 *.so
 
-
 # OS X nonsense
 .DS_Store
 ._*
@@ -48,6 +46,7 @@ python/kudu/*.cpp
 __pycache__/
 .spyderproject
 .python-version
+.pydevproject
 
 var/
 downloads/
@@ -430,4 +429,3 @@ selenium
 .babelcache.json
 .webpack.babelcache
 ui_framework/doc_site/build/*.js*
-
