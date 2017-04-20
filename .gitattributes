@@ -22,7 +22,3 @@
 
 *.bat    text eol=crlf
 *.cmd text eol=crlf
-*.doc diff=word
-*.png diff=exif
-*.jpg diff=exif
-*.bmp diff=exif
