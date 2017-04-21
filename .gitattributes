@@ -9,16 +9,19 @@
 *.csproj text merge=union eol=crlf
 *.sln    text merge=union eol=crlf
 *.vcxproj text merge=union eol=crlf
-
-*.cs     text diff=csharp eol=lf
-*.java   text diff=java eol=lf
-*.html   text diff=html eol=lf
-*.py     text diff=python eol=lf
-*.pl     text diff=perl eol=lf
-*.pm     text diff=perl eol=lf
-*.css    text eol=lf
-*.js     text eol=lf
-*.sql    text eol=lf
-
 *.bat    text eol=crlf
-*.cmd text eol=crlf
+*.cmd    text eol=crlf
+
+*.cs     text diff=csharp eol=crlf
+*.java   text diff=java eol=crlf
+*.html   text diff=html eol=crlf
+*.htm    text diff=htm eol=lf
+*.jsp    text diff=jsp eol=crlf
+*.py     text diff=python eol=crlf
+*.pl     text diff=perl eol=crlf
+*.pm     text diff=perl eol=crlf
+*.css    text eol=crlf
+*.js     text eol=crlf
+*.sql    text eol=crlf
+*.ktr    text eol=crlf
+*.kjb    text eol=crlf
