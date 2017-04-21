@@ -1,0 +1,105 @@
+"1、描述下对多线程的理解
+JDK5的时候	并发线程
+2、常见的集合有哪些，底层分别是什么结构的，分别适用于什么场景，哪个具有线程安全性
+3、描述sqoop的原理，传输数据过程遇到了哪些问题，如何解决的
+	MapReduce
+		仅仅只有Map Task
+	增量抽取
+		最好方案，对要抽取数据的表，加一行字段，表示，数据插入到表的插入时间
+4、Hive中sql语句与MySql中sql语句的区别
+5、Hive的优化
+	讲解的时候，抽取你最熟悉的，几个即可
+	结合一定的业务场景
+
+6、设定一个场景，解决数据倾斜
+7、如何干预负载均衡
+	-1,
+		bin/hadoop balan
+8、join有几种，分别用于什么场景
+9、介绍使用的窗口函数
+10、ROW_NUMBER使用的场景，有没有出现什么问题，如何解决问题的
+11、UDTF解析IP地址可行？怎么进行解析的"
+
+1、 hdfs原理，以及各个模块的职责
+答：Hadoop Distributed File System即：Hadoop分布式文件系统，就是把数据划分成不同的Block
+分别存储在不同节点的设备上。它分为两个部分：NameNode和DateNode，NameNode相当于一个领导，将文件系统的Meta-data存储在内存中，这些信息主要包括了文件信息、每一个文件对应的文件块的信息和每一个文件块在DataNode的信息等。它管理集群内的DataNode，当客户发送请求过来后，NameNode会根据Meta-data指定存储到哪些DataNode上，而其本身并不存储真实的数据。
+2、 mr的工作原理  答：当客户提交作业后，MapReduce库先把任务splits不同的块，然后根据“移动计算比移动数据
+更明智”的思想，把任务分发到各个DataNode上。在不同的DataNode上分别执行Map操作，产生键值对，然后通过shuffle重新洗牌，把键值相同的键值对传给同一个reduce，把键值不同的键值对传给不同的reduce进行处理，最后输出结果。这些按照时间顺序包括：输入分片（input split）、map阶段、combiner阶段、shuffle阶段和reduce阶段。（5个阶段）
+
+3、map方法是如何调用reduce方法的  答：Shuffle过程是MapReduce的核心，也被称为奇迹发生的地方，Hadoop的shuffle过程就是从map
+端输出到reduce端输入之间的过程。
+map过程的输出是写入本地磁盘而不是HDFS，但是一开始数据并不是直接写入磁盘而是缓冲在内存中，缓存的好处就是减少磁盘I/O的开销，提高合并和排序的速度。默认的内存缓冲大小是100M（可以配置），所以在书写map函数的时候要尽量减少内存的使用，为shuffle过程预留更多的内存，因为该过程是最耗时的过程。当缓冲的内存大小使用超过一定的阈值（默认80%），一个后台的线程就会启动把缓冲区中的数据写入（spill）到磁盘中，往内存中写入的线程继续写入知道缓冲区满，缓冲区满后线程阻塞直至缓冲区被清空。在数据spill到磁盘的过程中会有一些额外的处理，调用partition函数、combine函数（如果设置）、对数据进行排序（按key排序）。如果发生多次磁盘的溢出写，会在磁盘上形成几个溢出写文件，在map过程结束时，要将这些文件进行合并生成一个大的分区的排序的文件。
+reduce端可能从n多map的结果中获取数据，而这些map的执行速度不尽相同，当其中一个map运行结束时，reduce就会从jobtractor中获取该信息。map运行结束后tasktractor会得到消息，进而将消息汇报给jobtractor，reduce定时从jobtractor获取该信息，reduce端默认有5个线程从map端拖拉数据。
+4、shell如何判断文件是否存在，如果不存在该如何处理？
+if [ ! -f "$file" ]; then  touch "$file"
+fi
+不存在就创建一个吧。
+
+
+
+
+        require.async(['wkcommon:widget/ui/lib/sio/sio.js'], function(sio) { var url = 'https://cpro.baidustatic.com/cpro/ui/c.js'; sio.callByBrowser( url, function () { BAIDU_CLB_fillSlotAsync('u2845605','cpro_u2845605'); } ); });
+
+
+
+
+    void function(e,t){for(var n=t.getElementsByTagName("img"),a=+new Date,i=[],o=function(){this.removeEventListener&&this.removeEventListener("load",o,!1),i.push({img:this,time:+new Date})},s=0;s< n.length;s++)!function(){var e=n[s];e.addEventListener?!e.complete&&e.addEventListener("load",o,!1):e.attachEvent&&e.attachEvent("onreadystatechange",function(){"complete"==e.readyState&&o.call(e,o)})}();alog("speed.set",{fsItems:i,fs:a})}(window,document);
+
+
+
+
+
+5、fsimage和edit的区别？  答：fsimage保存了最新的元数据检查点，edits保存自最新检查点后的命名空间的变化。从最新检查
+点后，hadoop将对每个文件的操作都保存在edits中，为避免edits不断增大，secondary namenode就会周期性合并fsimage和edits成新的fsimage，edits再记录新的变化，
+这种机制有个问题：因edits存放在Namenode中，当Namenode挂掉，edits也会丢失，导致利用secondary namenode恢复Namenode时，会有部分数据丢失。
+6、hadoop1和hadoop2的区别？  答：Hadoop2相比较于Hadoop1.x来说，HDFS的架构与MapReduce的都有较大的变化，且速度上和
+可用性上都有了很大的提高，Hadoop2中有两个重要的变更：首先HDFS的NameNodes可以以集群的方式布署，增强了NameNodes的水平扩展能力和可用性，可以同时部署多个NameNode，这些NameNodes之间是相互独立，也就是说他们不需要相互协调，DataNode同时在所有NameNodes注册，做为他们共有的存储节点，并定时向所有的这些NameNodes发送心跳块使用情况的报告，并处理所有NameNodes向其发送的指令。再者MapReduce将JobTracker中的资源管理及任务生命周期管理（包括定时触发及监控），拆分成两个独立的组件，并更名为YARN（Yet Another Resource Negotiator）。MapReduce在Hadoop2中称为MR2或YARN，将JobTracker中的资源管理及任务生命周期管理（包括定时触发及监控），拆分成两个独立的服务，用于管理全部资源的ResourceManager以及管理每个应用的ApplicationMaster，ResourceManager用于管理向应用程序分配计算资源，每个ApplicationMaster用于管理应用程序、调度以及协调。
+笔试：
+1、 hdfs中的block默认保存几份？
+答：默认3份，可以确保块、磁盘和机器发生故障后数据不丢失。机架不同的机器上和不同的机架上。
+2、 哪个程序通常与nn在一个节点启动？并做分析
+答：jobtracker和namenode通常在一个节点上启动。用户代码提交到集群以后，由JobTracker决定哪
+个文件将被处理，并且为不同的task分配节点。而文件存储信息的管理者是nameNode，所以jobtracker一般要和nn在同一个节点启动。（同时，它还监控所有的task，一旦某个task失败了，JobTracker就会自动重新开
+启这个task，在大多数情况下这个task会被放在不用的节点上。每个Hadoop集群只有一个JobTracker，一般运行在集群的Master节点上。）
+3、 列举几个配置文件优化？ 答：
+（1） hadoop.tmp.dir
+默认值： /tmp
+说明： 尽量手动配置这个选项，否则的话都默认存在了里系统的默认临时文件/tmp里。并且手动配置的时候，如果服务器是多磁盘的，每个磁盘都设置一个临时文件目录，这样便于mapreduce或者hdfs等使用的时候提高磁盘IO效率。
+（2） fs.inmemory.size.mb
+默认值：
+说明： reduce阶段用户合并map输出的内存限制。这里设置200，可根据自身硬件设备进行更改测试。
+（3）dfs.blocksize
+默认值：67108864
+说明：这个就是hdfs里一个文件块的大小了，默认64M，这里设置134217728，即128M，太大的话会有较少map同时计算，太小的话也浪费可用map个数资源，而且文件太小namenode就浪费内存多。根据需要进行设置。
+ var cpro_psid ="u2572954"; var cpro_pswidth =966; var cpro_psheight =120;
+（4）Mapreduce.jobtracker.handler.count
+默认值：10
+说明：JobTracker可以启动的线程数，一般为tasktracker节点的4%。
+4、 写出你对zookeeper的理解
+ZooKeeper提供了一个简化并支持特定功能的分布式文件系统接口，加上数据同步，变更通知，客户端Cache等辅助机制。实际上zookeeper是很适合做集群节点都具有相同配置文件或相同配置信息的管理同步工具，可以设置权限及触发功能。比如集群中每一个加点安装部署zookeeper，构成zookeeper集群，配置好相应的watcher及触发运行脚本，在集群中任何一台的节点上修改配置文件，都会触发watcher，然后执行相应的配置信息同步脚本，更新所有其他节点上得配置信息，实现了配置的统一管理。集群的配置（文件）管理（配置修改之后，zookeeper监控到自动更新同步到其他客户端，实现配置的统一管理）。
+5、 datanode首次加入cluster的时候，如果log报告不兼容文件版本，那需要namenode执行格式化操作，这样处理的原因是？
+添加了一个新的标识符ClusterID用于标识集群中所有的节点。当格式化一个Namenode，需要提供这个标识符或者自动生成。这个ID可以被用来格式化加入集群的其他Namenode。
+6、 谈谈数据倾斜，如何发生的，并给出优化方案
+主要原因：1)、key分布不均匀；2)、业务数据本身的特性；3)、建表时考虑不周；4)、某些SQL语句本身就有数据倾斜。
+优化方案：1)、参数调节：hive.map.aggr = true；2）、SQL语句调节。
+7、 介绍一下hbase过滤器
+HBase为筛选数据提供了一组过滤器，通过这个过滤器可以在HBase中的数据的多个维度（行，列，数据版本）上进行对数据的筛选操作，也就是说过滤器最终能够筛选的数据能够细化到具体的一个存储单元格上（由行键，列名，时间戳定位）。RowFilter、PrefixFilter。。。
+8、 mapreduce基本执行过程
+1.首先对输入数据源进行切片 2.master调度worker执行map任务 3.worker读取输入源片段
+4.worker执行map任务，将任务输出保存在本地
+5.master调度worker执行reduce任务，reduce worker读取map任务的输出文件 6.执行reduce任务，将任务输出保存到HDFS
+9、谈谈hadoop1和hadoop2的区别 10、hbase集群安装注意事项
+11、记录包含值域F和值域G，要分别统计相同G值的记录中不同的F值的数目，简单编写过程。
+信息技术有限公司
+1、你们的集群规模？
+2、你们的数据是用什么导入到数据库的？导入到什么数据库？
+3、你们业务数据量多大？有多少行数据？(面试了三家，都问这个问题)
+4、你们处理数据是直接读数据库的数据还是读文本数据？
+5、你们写hive的hql语句，大概有多少条？
+6、你们提交的job任务大概有多少个？这些job执行完大概用多少时间？(面试了三家，都问这个问题)
+7、hive跟hbase的区别是？
+8、你在项目中主要的工作任务是？
+9、你在项目中遇到了哪些难题，是怎么解决的？
+10、你自己写过udf函数么？写了哪些？
+11、你的项目提交到job的时候数据量有多大？(面试了三家，都问这个问题)
+12、reduce后输出的数据量有多大？

@@ -1,0 +1,73 @@
+win 7配置
+
+
+
+1.下载软件
+2.配置环境变量
+3.修改配置文件
+4.安装
+5.启动mycat
+
+
+1.下载软件
+
+1.1mycat
+下载链接：http://www.mycat.org.cn/
+
+版本号：Mycat-server-1.6-RELEASE-20161028204710-win
+
+下载解压，放在D盘根目录下
+
+
+
+
+1.2jdk版本在1.7以上
+
+本机安装版本jdk-8u111-windows-x64
+
+
+
+
+2.配置环境变量
+
+	新建环境变量：MYCAT_HOME	d:\mycat
+	添加path路径：	%MYCAT_HOME%\bin;
+
+
+3.修改配置文件：
+
+weapper.conf(配置jdk路径)
+server.xml(设置mycat登录用户名密码)
+schema.xml(配置实体数据库)
+rule.xml(分库)
+startup_nowrap.bat(xms、xmx、xx三个参数)
+
+
+4.用cmd打开mycat
+进入cmd.切换到./mycat/bin/
+
+　　　　安装mycat服务 ：mycate install 
+
+
+5.打开mycat目录
+	D:\mycat\bin
+  下的startup_nowrap.bat，双击启动
+  看到MyCAT Server startup successfully. see logs in logs/mycat.log说明安装成功
+
+6.使用navicat客户端连接 端口是8066 用户名和密码是在上面server.xml中配置的
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
