@@ -1,0 +1,142 @@
+重新编译Hadoop 2.7.2源代码,使其支持Snappy解压压缩库
+
+1. 下载所需要的源码包 snappy-1.1.1.tar.gz、protobuf-2.5.0.tar.gz、hadoop-2.7.2-src.tar.gz
+[root@master ~]# cd /hadoop
+[root@master hadoop]# mkdir native_snappy
+[root@master hadoop]# cd native_snappy
+[root@master native_snappy]# wget http://pkgs.fedoraproject.org/repo/pkgs/snappy/snappy-1.1.1.tar.gz/8887e3b7253b22a31f5486bca3cbc1c2/snappy-1.1.1.tar.gz
+--2016-06-21 15:23:35--  http://pkgs.fedoraproject.org/repo/pkgs/snappy/snappy-1.1.1.tar.gz/8887e3b7253b22a31f5486bca3cbc1c2/snappy-1.1.1.tar.gz
+Resolving pkgs.fedoraproject.org... 209.132.181.4
+Connecting to pkgs.fedoraproject.org|209.132.181.4|:80... connected.
+HTTP request sent, awaiting response... 200 OK
+Length: 1777992 (1.7M) [application/x-gzip]
+Saving to: “snappy-1.1.1.tar.gz”
+
+100%[==========================================================================================================================>] 1,777,992   56.2K/s   in 32s
+
+2016-06-21 15:24:08 (54.8 KB/s) - “snappy-1.1.1.tar.gz” saved [1777992/1777992]
+
+You have mail in /var/spool/mail/root
+[root@master native_snappy]#
+
+###百度云盘下载protobuf-2.5.0.tar.gz,然后rz上传linux
+http://pan.baidu.com/share/link?uk=3694838921&shareid=1608967052&third=0&adapt=pc&fr=ftw
+
+[root@master native_snappy]# rz
+rz waiting to receive.
+Starting zmodem transfer.  Press Ctrl+C to cancel.
+Transferring protobuf-2.5.0.tar.gz...
+  100%    2345 KB    2345 KB/sec    00:00:01       0 Errors
+
+You have mail in /var/spool/mail/root
+[root@master native_snappy]#
+[root@master native_snappy]# wget http://apache.01link.hk/hadoop/common/hadoop-2.7.2/hadoop-2.7.2-src.tar.gz
+--2016-06-21 15:37:46--  http://apache.01link.hk/hadoop/common/hadoop-2.7.2/hadoop-2.7.2-src.tar.gz
+Resolving apache.01link.hk... 101.78.134.82
+Connecting to apache.01link.hk|101.78.134.82|:80... connected.
+HTTP request sent, awaiting response... 200 OK
+Length: 18290860 (17M) [application/x-gzip]
+Saving to: “hadoop-2.7.2-src.tar.gz”
+
+100%[==========================================================================================================================>] 18,290,860   248K/s   in 54s
+
+2016-06-21 15:38:40 (330 KB/s) - “hadoop-2.7.2-src.tar.gz” saved [18290860/18290860]
+
+You have mail in /var/spool/mail/root
+[root@master native_snappy]#
+[root@master native_snappy]# ls -l
+total 21952
+-rw-r--r-- 1 root root 18290860 Jan 26 09:29 hadoop-2.7.2-src.tar.gz
+-rw-r--r-- 1 root root  2401901 Jun 21 15:28 protobuf-2.5.0.tar.gz
+-rw-r--r-- 1 root root  1777992 Feb 24  2014 snappy-1.1.1.tar.gz
+[root@master native_snappy]#
+
+2. 准备编译环境
+[root@host /]# yum -y install svn
+Loaded plugins: fastestmirror, refresh-packagekit, security
+Loading mirror speeds from cached hostfile
+Setting up Install Process
+No package svn available.
+
+[root@master yum.repos.d]# lsb_release -a
+LSB Version:    :base-4.0-amd64:base-4.0-noarch:core-4.0-amd64:core-4.0-noarch
+Distributor ID: CentOS
+Description:    CentOS release 6.5 (Final)
+Release:        6.5
+Codename:       Final
+You have mail in /var/spool/mail/root
+[root@master yum.repos.d]#
+
+###Centos yum 安装软件 No package XXX available.   http://blog.itpub.net/30089851/viewspace-2120628/
+
+
+[root@master yum.repos.d]# yum install svn
+[root@master yum.repos.d]# yum install autoconf automake libtool cmake
+[root@master yum.repos.d]# yum install ncurses-devel
+[root@master yum.repos.d]# yum install openssl-devel
+[root@master yum.repos.d]# yum install gcc*
+
+
+3. 编译安装snappy
+# 用root用户执行以下命令
+[root@master native_snappy]#tar -zxvf snappy-1.1.1.tar.gz
+[root@master native_snappy]# cd snappy-1.1.1/
+[root@master snappy-1.1.1]# ./configure
+[root@master snappy-1.1.1]# make
+[root@master snappy-1.1.1]# make install
+
+4. 查看snappy库文件
+[root@master snappy-1.1.1]# ls -lh /usr/local/lib |grep snappy
+-rw-r--r--  1 root root 229K Jun 21 15:46 libsnappy.a
+-rwxr-xr-x  1 root root  953 Jun 21 15:46 libsnappy.la
+lrwxrwxrwx  1 root root   18 Jun 21 15:46 libsnappy.so -> libsnappy.so.1.2.0
+lrwxrwxrwx  1 root root   18 Jun 21 15:46 libsnappy.so.1 -> libsnappy.so.1.2.0
+-rwxr-xr-x  1 root root 145K Jun 21 15:46 libsnappy.so.1.2.0
+[root@master snappy-1.1.1]#
+
+
+5. 编译安装protobuf
+# 用root用户执行以下命令
+[root@master snappy-1.1.1]# cd ../
+You have mail in /var/spool/mail/root
+[root@master native_snappy]# tar -zxvf protobuf-2.5.0.tar.gz
+[root@master native_snappy]# cd protobuf-2.5.0/
+[root@master protobuf-2.5.0]# ./configure
+[root@master protobuf-2.5.0]# make
+[root@master protobuf-2.5.0]# make install
+
+
+
+# 查看protobuf版本以测试是否安装成功
+[root@master protobuf-2.5.0]# protoc --version
+protoc: error while loading shared libraries: libprotobuf.so.8: cannot open shared object file: No such file or directory
+[root@master protobuf-2.5.0]# export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib
+You have mail in /var/spool/mail/root
+[root@master protobuf-2.5.0]# protoc --version
+libprotoc 2.5.0
+[root@master protobuf-2.5.0]#
+
+
+6. 编译hadoop native
+[root@master native_snappy]# tar -zxvf hadoop-2.7.2-src.tar.gz
+[root@master native_snappy]# cd hadoop-2.7.2-src/
+[root@master hadoop-2.7.2-src]# mvn clean package -DskipTests -Pdist,native -Dtar -Dsnappy.lib=/usr/local/lib -Dbundle.snappy
+.........
+.........
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD SUCCESS
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time: 20:58 min
+[INFO] Finished at: 2016-06-21T19:12:51+08:00
+[INFO] Final Memory: 179M/521M
+[INFO] ------------------------------------------------------------------------
+[root@master hadoop-2.7.2-src]#
+
+7.执行成功后，hadoop-dist/target/hadoop-2.7.2.tar.gz即为新生成的二进制安装包。
+[root@master hadoop-2.7.2-src]# ll hadoop-dist/target/hadoop-2.7.2.tar.gz
+-rw-r--r-- 1 root root 195117479 Jun 21 19:12 hadoop-dist/target/hadoop-2.7.2.tar.gz
+[root@master hadoop-2.7.2-src]#
+
+
+8.重命名为hadoop-2.7.2-snappy.tar.gz
+[root@master hadoop-2.7.2-src]# cp hadoop-dist/target/hadoop-2.7.2.tar.gz /tmp/hadoop-2.7.2-snappy.tar.gz

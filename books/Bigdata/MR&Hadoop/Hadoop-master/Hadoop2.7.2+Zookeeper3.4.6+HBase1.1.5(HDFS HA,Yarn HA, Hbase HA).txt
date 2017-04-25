@@ -1,0 +1,1111 @@
+一.版本
+组件名			版本			         备注及下载地址
+Centos		6.5 (Final)64-bit	     lsb_release -a 命令查看操作系统版本
+					     file /bin/ls 命令查看操作系统位数
+jdk  		version "1.7.0_67"	     http://www.360sdn.com/Linux/2014/0610/3568.html
+
+Hadoop          hadoop-2.7.2.tar.gz	     hdfs+mapreduce+yarn
+                                             hadoop-2.7.2.tar.gz(重新编译支持snappy的hadoop-2.7.2-snappy.tar.gz)
+                                             参考” 01.重新编译Hadoop 2.7.2源代码,使其支持snappy.txt”
+
+Zookeeper	zookeeper-3.4.6.tar.gz	     热切,Yarn 存储数据使用的协调服务
+                                             https://www.apache.org/dist/zookeeper/zookeeper-3.4.6/zookeeper-3.4.6.tar.gz
+
+HBase	        hbase-1.1.5-bin.tar.gz	     HBase 是一个开源的非关系(NoSQL)的可伸缩性分布式数据库。它是面向列的，并适合于存储超大型松散数据。HBase适合于实时，随机对Big数据进行读写操作的业务环境。
+                                             http://archive.apache.org/dist/hbase/1.1.5/hbase-1.1.5-bin.tar.gz
+
+二.主机规划
+IP                    Host 	         安装软件	              进程
+172.16.101.55	sht-sgmhadoopnn-01   Hadoop、HBase	       NameNode
+                                                                DFSZKFailoverController
+                                                                ResourceManager
+                                                                HMaster
+                                                                JobHistoryServer
+
+172.16.101.56	sht-sgmhadoopnn-02   Hadoop、HBase	       NameNode
+                                                                DFSZKFailoverController
+                                                                ResourceManager
+                                                                HMaster
+
+172.16.101.58	sht-sgmhadoopdn-01   hadoop、zookeeper、HBase    DataNode
+                                                                NodeManager
+								JournalNode
+								QuorumPeerMain
+								HRegionServer
+
+172.16.101.59	sht-sgmhadoopdn-02  Hadoop、zookeeper、HBase     DataNode
+								NodeManager
+								JournalNode
+								QuorumPeerMain
+								HRegionServer
+
+172.16.101.60	sht-sgmhadoopdn-03  Hadoop、zookeeper、HBase     DataNode
+								NodeManager
+								JournalNode
+								QuorumPeerMain
+								HRegionServer
+#当前系统配置NameNode,ResourceManager,HMaster 进程的 HA
+
+
+三.目录规划
+名称 	               路径 	                备注
+$HADOOP_HOME 	  /hadoop/hadoop
+Data 	          $HADOOP_HOME/data
+Log 	          $HADOOP_HOME/logs
+hadoop.tmp.dir	  /home/hadoop/tmp	    需要手工创建,权限777,root:root
+$ZOOKEEPER_HOME   /hadoop/zookeeper
+$HBASE_HOME	  /hadoop/hbase
+hbase.tmp.dir	  /hadoop/hbase/tmp	    需要手工创建,权限777,root:root
+
+
+四.环境准备
+1.设置ip地址(5台)
+    ###查看当前ip: hostname -i
+	[root@sht-sgmhadoopnn-01 ~]# vi /etc/sysconfig/network-scripts/ifcfg-eth0
+DEVICE="eth0"
+BOOTPROTO="static"
+DNS1="172.16.101.63"
+DNS2="172.16.101.64"
+GATEWAY="172.16.101.1"
+HWADDR="00:50:56:82:50:1E"
+IPADDR="172.16.101.55"
+NETMASK="255.255.255.0"
+NM_CONTROLLED="yes"
+ONBOOT="yes"
+TYPE="Ethernet"
+UUID="257c075f-6c6a-47ef-a025-e625367cbd9c"
+
+	执行命令: service network restart
+	验证:ifconfig
+2.关闭防火墙(5台)
+	执行命:service iptables stop
+	验证:service iptables status
+3.关闭防火墙的自动运行(5台)
+	执行命令:chkconfig iptables off
+	验证:chkconfig --list | grep iptables
+4 设置主机名(5台)
+	执行命令	(1)hostname sht-sgmhadoopnn-01
+			(2)vi /etc/sysconfig/network
+				[root@sht-sgmhadoopnn-01 ~]# vi /etc/sysconfig/network
+NETWORKING=yes
+HOSTNAME=sht-sgmhadoopnn-01.xxx.cn
+GATEWAY=172.16.101.1
+
+5.ip与hostname绑定(5台)
+                        [root@sht-sgmhadoopnn-01 ~]# vi /etc/hosts
+127.0.0.1   localhost localhost.localdomain localhost4 localhost4.localdomain4
+::1         localhost localhost.localdomain localhost6 localhost6.localdomain6
+
+172.16.101.55   sht-sgmhadoopnn-01.xxx.cn   sht-sgmhadoopnn-01
+172.16.101.56   sht-sgmhadoopnn-02.xxx.cn   sht-sgmhadoopnn-02
+172.16.101.58   sht-sgmhadoopdn-01.xxx.cn   sht-sgmhadoopdn-01
+172.16.101.59   sht-sgmhadoopdn-02.xxx.cn   sht-sgmhadoopdn-02
+172.16.101.60   sht-sgmhadoopdn-03.xxx.cn   sht-sgmhadoopdn-03
+
+	验证:ping sht-sgmhadoopnn-01
+
+6.设置5台machines,SSH互相通信
+https://github.com/Hackeruncle/Linux/blob/master/Configure%20SSH%20of%205%20machines.txt
+
+7.安装JDK(5台) 和设置环境变量
+	(1)执行命令
+	[root@sht-sgmhadoopnn-01 ~]# cd /usr/java
+	[root@sht-sgmhadoopnn-01 java]# cp /tmp/jdk-7u67-linux-x64.gz  ./
+	[root@sht-sgmhadoopnn-01 java]# tar -xzvf jdk-7u67-linux-x64.gz
+
+	(2)vi /etc/profile 增加内容如下:
+			    export JAVA_HOME=/usr/java/jdk1.7.0_67
+			    export HADOOP_HOME=/hadoop/hadoop
+
+###加载native库,http://blog.csdn.net/ligt0610/article/details/47757013
+export HADOOP_OPTS="$HADOOP_OPTS -Djava.library.path=$HADOOP_HOME/lib:$HADOOP_HOME/lib/native"
+
+                                                export ZOOKEEPER_HOME=/hadoop/zookeeper
+                                                export HBASE_HOME=/hadoop/hbase
+                       PATH=.:$HADOOP_HOME/bin:$JAVA_HOME/bin:$ZOOKEEPER_HOME/bin:HBASE_HOME/bin:$PATH
+export $PATH
+
+	#先把HADOOP_HOME, ZOOKEEPER_HOME, HBASE_HOME配置了
+              (3)执行 source /etc/profile
+	(4)验证:java –version
+
+8.创建文件夹(5台)
+  mkdir  /hadoop
+
+五.安装Zookeeper
+sht-sgmhadoopdn-01/02/03
+
+1.下载解压zookeeper-3.4.6.tar.gz
+[root@sht-sgmhadoopdn-01 tmp]# wget http://mirror.bit.edu.cn/apache/zookeeper/zookeeper-3.4.6/zookeeper-3.4.6.tar.gz
+[root@sht-sgmhadoopdn-02 tmp]# wget http://mirror.bit.edu.cn/apache/zookeeper/zookeeper-3.4.6/zookeeper-3.4.6.tar.gz
+[root@sht-sgmhadoopdn-03 tmp]# wget http://mirror.bit.edu.cn/apache/zookeeper/zookeeper-3.4.6/zookeeper-3.4.6.tar.gz
+
+[root@sht-sgmhadoopdn-01 tmp]# tar -xvf zookeeper-3.4.6.tar.gz
+[root@sht-sgmhadoopdn-02 tmp]# tar -xvf zookeeper-3.4.6.tar.gz
+[root@sht-sgmhadoopdn-03 tmp]# tar -xvf zookeeper-3.4.6.tar.gz
+
+[root@sht-sgmhadoopdn-01 tmp]# mv zookeeper-3.4.6 /hadoop/zookeeper
+[root@sht-sgmhadoopdn-02 tmp]# mv zookeeper-3.4.6 /hadoop/zookeeper
+[root@sht-sgmhadoopdn-03 tmp]# mv zookeeper-3.4.6 /hadoop/zookeeper
+
+2.修改配置
+[root@sht-sgmhadoopdn-01 tmp]# cd /hadoop/zookeeper/conf
+[root@sht-sgmhadoopdn-01 conf]# cp zoo_sample.cfg zoo.cfg
+
+[root@sht-sgmhadoopdn-01 conf]# vi zoo.cfg
+修改dataDir
+dataDir=/hadoop/zookeeper/data
+添加下面三行
+server.1=sht-sgmhadoopdn-01:2888:3888
+server.2=sht-sgmhadoopdn-02:2888:3888
+server.3=sht-sgmhadoopdn-03:2888:3888
+
+[root@sht-sgmhadoopdn-01 conf]# cd ../
+[root@sht-sgmhadoopdn-01 zookeeper]# mkdir data
+[root@sht-sgmhadoopdn-01 zookeeper]# touch data/myid
+[root@sht-sgmhadoopdn-01 zookeeper]# echo 1 > data/myid
+[root@sht-sgmhadoopdn-01 zookeeper]# more data/myid
+1
+
+## sht-sgmhadoopdn-02/03,也修改配置,就如下不同
+[root@sht-sgmhadoopdn-02 zookeeper]# echo 2 > data/myid
+[root@sht-sgmhadoopdn-03 zookeeper]# echo 3 > data/myid
+###切记不可echo 3>data/myid,将>前后空格保留,否则无法将 3 写入myid文件
+
+六.安装Hadoop(NameNode HA+ResourceManager HA)
+#step3~7,用SecureCRT ssh 到 linux的环境中,假如copy 内容从window 到 linux 中,中文乱码,请参照修改http://www.cnblogs.com/qi09/archive/2013/02/05/2892922.html
+
+1.下载解压hadoop-2.7.2.tar.gz
+#####[root@sht-sgmhadoopnn-01 tmp]# wget https://www.apache.org/dist/hadoop/core/hadoop-2.7.2/hadoop-2.7.2.tar.gz --no-check-certificate
+###使用重新编译支持snappy的hadoop二进制包  hadoop-2.7.2-snappy.tar.gz
+[root@sht-sgmhadoopnn-01 tmp]# mv hadoop-2.7.2-snappy.tar.gz hadoop-2.7.2.tar.gz
+
+[root@sht-sgmhadoopnn-01 tmp]# tar -xvf hadoop-2.7.2.tar.gz
+[root@sht-sgmhadoopnn-01 tmp]# mv /tmp/hadoop-2.7.2 /hadoop/hadoop
+[root@sht-sgmhadoopnn-01 tmp]# cd /hadoop/hadoop/etc/hadoop
+[root@sht-sgmhadoopnn-01 etc]# pwd
+/hadoop/hadoop/etc/hadoop
+
+2.修改$HADOOP_HOME/etc/hadoop/hadoop-env.sh
+export JAVA_HOME="/usr/java/jdk1.7.0_67"
+export HADOOP_OPTS="$HADOOP_OPTS -Djava.library.path=$HADOOP_HOME/lib:$HADOOP_HOME/lib/native"
+
+3.修改$HADOOP_HOME/etc/hadoop/core-site.xml
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
+<configuration>
+	<!--Yarn 需要使用 fs.defaultFS 指定NameNode URI -->
+        <property>
+                <name>fs.defaultFS</name>
+                <value>hdfs://mycluster</value>
+        </property>
+        <!--==============================Trash机制======================================= -->
+        <property>
+                <!--多长时间创建CheckPoint NameNode截点上运行的CheckPointer 从Current文件夹创建CheckPoint;默认：0 由fs.trash.interval项指定 -->
+                <name>fs.trash.checkpoint.interval</name>
+                <value>0</value>
+        </property>
+        <property>
+                <!--多少分钟.Trash下的CheckPoint目录会被删除,该配置服务器设置优先级大于客户端，默认：0 不删除 -->
+                <name>fs.trash.interval</name>
+                <value>1440</value>
+        </property>
+
+         <!--指定hadoop临时目录, hadoop.tmp.dir 是hadoop文件系统依赖的基础配置，很多路径都依赖它。如果hdfs-site.xml中不配 置namenode和datanode的存放位置，默认就放在这>个路径中 -->
+        <property>
+                <name>hadoop.tmp.dir</name>
+                <value>/home/hadoop/tmp</value>
+        </property>
+
+         <!-- 指定zookeeper地址 -->
+        <property>
+                <name>ha.zookeeper.quorum</name>
+                <value>sht-sgmhadoopdn-01:2181,sht-sgmhadoopdn-02:2181,sht-sgmhadoopdn-03:2181</value>
+        </property>
+         <!--指定ZooKeeper超时间隔，单位毫秒 -->
+        <property>
+                <name>ha.zookeeper.session-timeout.ms</name>
+                <value>2000</value>
+        </property>
+
+        <property>
+           <name>hadoop.proxyuser.root.hosts</name>
+           <value>*</value>
+        </property>
+        <property>
+            <name>hadoop.proxyuser.root.groups</name>
+            <value>*</value>
+       </property>
+
+
+      <property>
+  <name>io.compression.codecs</name>
+  <value>org.apache.hadoop.io.compress.GzipCodec,
+    org.apache.hadoop.io.compress.DefaultCodec,
+    org.apache.hadoop.io.compress.BZip2Codec,
+    org.apache.hadoop.io.compress.SnappyCodec
+  </value>
+      </property>
+</configuration>
+
+4.修改$HADOOP_HOME/etc/hadoop/hdfs-site.xml
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
+<configuration>
+	<!--HDFS超级用户 -->
+	<property>
+		<name>dfs.permissions.superusergroup</name>
+		<value>root</value>
+	</property>
+
+	<!--开启web hdfs -->
+	<property>
+		<name>dfs.webhdfs.enabled</name>
+		<value>true</value>
+	</property>
+	<property>
+		<name>dfs.namenode.name.dir</name>
+		<value>/hadoop/hadoop/data/dfs/name</value>
+		<description> namenode 存放name table(fsimage)本地目录（需要修改）</description>
+	</property>
+	<property>
+		<name>dfs.namenode.edits.dir</name>
+		<value>${dfs.namenode.name.dir}</value>
+		<description>namenode粗放 transaction file(edits)本地目录（需要修改）</description>
+	</property>
+	<property>
+		<name>dfs.datanode.data.dir</name>
+		<value>/hadoop/hadoop/data/dfs/data</value>
+		<description>datanode存放block本地目录（需要修改）</description>
+	</property>
+	<property>
+		<name>dfs.replication</name>
+		<value>3</value>
+	</property>
+	<!-- 块大小 （默认） -->
+	<property>
+		<name>dfs.blocksize</name>
+		<value>268435456</value>
+	</property>
+	<!--======================================================================= -->
+	<!--HDFS高可用配置 -->
+	<!--指定hdfs的nameservice为mycluster,需要和core-site.xml中的保持一致 -->
+	<property>
+		<name>dfs.nameservices</name>
+		<value>mycluster</value>
+	</property>
+	<property>
+		<!--设置NameNode IDs 此版本最大只支持两个NameNode -->
+		<name>dfs.ha.namenodes.mycluster</name>
+		<value>nn1,nn2</value>
+	</property>
+
+	<!-- Hdfs HA: dfs.namenode.rpc-address.[nameservice ID] rpc 通信地址 -->
+	<property>
+		<name>dfs.namenode.rpc-address.mycluster.nn1</name>
+		<value>sht-sgmhadoopnn-01:8020</value>
+	</property>
+	<property>
+		<name>dfs.namenode.rpc-address.mycluster.nn2</name>
+		<value>sht-sgmhadoopnn-02:8020</value>
+	</property>
+
+	<!-- Hdfs HA: dfs.namenode.http-address.[nameservice ID] http 通信地址 -->
+	<property>
+		<name>dfs.namenode.http-address.mycluster.nn1</name>
+		<value>sht-sgmhadoopnn-01:50070</value>
+	</property>
+	<property>
+		<name>dfs.namenode.http-address.mycluster.nn2</name>
+		<value>sht-sgmhadoopnn-02:50070</value>
+	</property>
+
+	<!--==================Namenode editlog同步 ============================================ -->
+	<!--保证数据恢复 -->
+	<property>
+		<name>dfs.journalnode.http-address</name>
+		<value>0.0.0.0:8480</value>
+	</property>
+	<property>
+		<name>dfs.journalnode.rpc-address</name>
+		<value>0.0.0.0:8485</value>
+	</property>
+	<property>
+		<!--设置JournalNode服务器地址，QuorumJournalManager 用于存储editlog -->
+		<!--格式：qjournal://<host1:port1>;<host2:port2>;<host3:port3>/<journalId> 端口同journalnode.rpc-address -->
+		<name>dfs.namenode.shared.edits.dir</name>
+		<value>qjournal://sht-sgmhadoopdn-01:8485;sht-sgmhadoopdn-02:8485;sht-sgmhadoopdn-03:8485/mycluster</value>
+	</property>
+
+	<property>
+		<!--JournalNode存放数据地址 -->
+		<name>dfs.journalnode.edits.dir</name>
+		<value>/hadoop/hadoop/data/dfs/jn</value>
+	</property>
+	<!--==================DataNode editlog同步 ============================================ -->
+	<property>
+		<!--DataNode,Client连接Namenode识别选择Active NameNode策略 -->
+                             <!-- 配置失败自动切换实现方式 -->
+		<name>dfs.client.failover.proxy.provider.mycluster</name>
+		<value>org.apache.hadoop.hdfs.server.namenode.ha.ConfiguredFailoverProxyProvider</value>
+	</property>
+	<!--==================Namenode fencing：=============================================== -->
+	<!--Failover后防止停掉的Namenode启动，造成两个服务 -->
+	<property>
+		<name>dfs.ha.fencing.methods</name>
+		<value>sshfence</value>
+	</property>
+	<property>
+		<name>dfs.ha.fencing.ssh.private-key-files</name>
+		<value>/root/.ssh/id_rsa</value>
+	</property>
+	<property>
+		<!--多少milliseconds 认为fencing失败 -->
+		<name>dfs.ha.fencing.ssh.connect-timeout</name>
+		<value>30000</value>
+	</property>
+
+	<!--==================NameNode auto failover base ZKFC and Zookeeper====================== -->
+	<!--开启基于Zookeeper  -->
+	<property>
+		<name>dfs.ha.automatic-failover.enabled</name>
+		<value>true</value>
+	</property>
+	<!--动态许可datanode连接namenode列表 -->
+ <property>
+   <name>dfs.hosts</name>
+   <value>/hadoop/hadoop/etc/hadoop/slaves</value>
+ </property>
+</configuration>
+
+5.修改$HADOOP_HOME/etc/hadoop/yarn-env.sh
+#Yarn Daemon Options
+#export YARN_RESOURCEMANAGER_OPTS
+#export YARN_NODEMANAGER_OPTS
+#export YARN_PROXYSERVER_OPTS
+#export HADOOP_JOB_HISTORYSERVER_OPTS
+
+#Yarn Logs
+export YARN_LOG_DIR="/hadoop/hadoop/logs"
+
+6.修改$HADOOP_HOEM/etc/hadoop/mapred-site.xml
+[root@sht-sgmhadoopnn-01 hadoop]# cp  mapred-site.xml.template  mapred-site.xml
+[root@sht-sgmhadoopnn-01 hadoop]# vi  mapred-site.xml
+<configuration>
+	<!-- 配置 MapReduce Applications -->
+	<property>
+		<name>mapreduce.framework.name</name>
+		<value>yarn</value>
+	</property>
+	<!-- JobHistory Server ============================================================== -->
+	<!-- 配置 MapReduce JobHistory Server 地址 ，默认端口10020 -->
+	<property>
+		<name>mapreduce.jobhistory.address</name>
+		<value> sht-sgmhadoopnn-01:10020</value>
+	</property>
+	<!-- 配置 MapReduce JobHistory Server web ui 地址， 默认端口19888 -->
+	<property>
+		<name>mapreduce.jobhistory.webapp.address</name>
+		<value> sht-sgmhadoopnn-01:19888</value>
+	</property>
+
+<!-- 配置 Map段输出的压缩,snappy-->
+  <property>
+      <name>mapreduce.map.output.compress</name>
+      <value>true</value>
+  </property>
+
+  <property>
+      <name>mapreduce.map.output.compress.codec</name>
+      <value>org.apache.hadoop.io.compress.SnappyCodec</value>
+   </property>
+
+</configuration>
+
+7.修改$HADOOP_HOME/etc/hadoop/yarn-site.xml
+<configuration>
+	<!-- nodemanager 配置 ================================================= -->
+	<property>
+		<name>yarn.nodemanager.aux-services</name>
+		<value>mapreduce_shuffle</value>
+	</property>
+	<property>
+		<name>yarn.nodemanager.aux-services.mapreduce.shuffle.class</name>
+		<value>org.apache.hadoop.mapred.ShuffleHandler</value>
+	</property>
+	<property>
+		<description>Address where the localizer IPC is.</description>
+		<name>yarn.nodemanager.localizer.address</name>
+		<value>0.0.0.0:23344</value>
+	</property>
+	<property>
+		<description>NM Webapp address.</description>
+		<name>yarn.nodemanager.webapp.address</name>
+		<value>0.0.0.0:23999</value>
+	</property>
+
+	<!-- HA 配置 =============================================================== -->
+	<!-- Resource Manager Configs -->
+	<property>
+		<name>yarn.resourcemanager.connect.retry-interval.ms</name>
+		<value>2000</value>
+	</property>
+	<property>
+		<name>yarn.resourcemanager.ha.enabled</name>
+		<value>true</value>
+	</property>
+	<property>
+		<name>yarn.resourcemanager.ha.automatic-failover.enabled</name>
+		<value>true</value>
+	</property>
+	<!-- 使嵌入式自动故障转移。HA环境启动，与 ZKRMStateStore 配合 处理fencing -->
+	<property>
+		<name>yarn.resourcemanager.ha.automatic-failover.embedded</name>
+		<value>true</value>
+	</property>
+	<!-- 集群名称，确保HA选举时对应的集群 -->
+	<property>
+		<name>yarn.resourcemanager.cluster-id</name>
+		<value>yarn-cluster</value>
+	</property>
+	<property>
+		<name>yarn.resourcemanager.ha.rm-ids</name>
+		<value>rm1,rm2</value>
+	</property>
+    <!--这里RM主备结点需要单独指定,（可选）
+	<property>
+        <name>yarn.resourcemanager.ha.id</name>
+        <value>rm2</value>
+</property>
+ -->
+	<property>
+		<name>yarn.resourcemanager.scheduler.class</name>
+		<value>org.apache.hadoop.yarn.server.resourcemanager.scheduler.fair.FairScheduler</value>
+	</property>
+	<property>
+		<name>yarn.resourcemanager.recovery.enabled</name>
+		<value>true</value>
+	</property>
+	<property>
+		<name>yarn.app.mapreduce.am.scheduler.connection.wait.interval-ms</name>
+		<value>5000</value>
+	</property>
+	<!-- ZKRMStateStore 配置 -->
+	<property>
+		<name>yarn.resourcemanager.store.class</name>
+		<value>org.apache.hadoop.yarn.server.resourcemanager.recovery.ZKRMStateStore</value>
+	</property>
+	<property>
+		<name>yarn.resourcemanager.zk-address</name>
+		<value>sht-sgmhadoopdn-01:2181,sht-sgmhadoopdn-02:2181,sht-sgmhadoopdn-03:2181</value>
+	</property>
+	<property>
+		<name>yarn.resourcemanager.zk.state-store.address</name>
+		<value>sht-sgmhadoopdn-01:2181,sht-sgmhadoopdn-02:2181,sht-sgmhadoopdn-03:2181</value>
+	</property>
+	<!-- Client访问RM的RPC地址 (applications manager interface) -->
+	<property>
+		<name>yarn.resourcemanager.address.rm1</name>
+		<value>sht-sgmhadoopnn-01:23140</value>
+	</property>
+	<property>
+		<name>yarn.resourcemanager.address.rm2</name>
+		<value>sht-sgmhadoopnn-02:23140</value>
+	</property>
+	<!-- AM访问RM的RPC地址(scheduler interface) -->
+	<property>
+		<name>yarn.resourcemanager.scheduler.address.rm1</name>
+		<value>sht-sgmhadoopnn-01:23130</value>
+	</property>
+	<property>
+		<name>yarn.resourcemanager.scheduler.address.rm2</name>
+		<value>sht-sgmhadoopnn-02:23130</value>
+	</property>
+	<!-- RM admin interface -->
+	<property>
+		<name>yarn.resourcemanager.admin.address.rm1</name>
+		<value>sht-sgmhadoopnn-01:23141</value>
+	</property>
+	<property>
+		<name>yarn.resourcemanager.admin.address.rm2</name>
+		<value>sht-sgmhadoopnn-02:23141</value>
+	</property>
+	<!--NM访问RM的RPC端口 -->
+	<property>
+		<name>yarn.resourcemanager.resource-tracker.address.rm1</name>
+		<value>sht-sgmhadoopnn-01:23125</value>
+	</property>
+	<property>
+		<name>yarn.resourcemanager.resource-tracker.address.rm2</name>
+		<value>sht-sgmhadoopnn-02:23125</value>
+	</property>
+	<!-- RM web application 地址 -->
+	<property>
+		<name>yarn.resourcemanager.webapp.address.rm1</name>
+		<value>sht-sgmhadoopnn-01:8088</value>
+	</property>
+	<property>
+		<name>yarn.resourcemanager.webapp.address.rm2</name>
+		<value>sht-sgmhadoopnn-02:8088</value>
+	</property>
+	<property>
+		<name>yarn.resourcemanager.webapp.https.address.rm1</name>
+		<value>sht-sgmhadoopnn-01:23189</value>
+	</property>
+	<property>
+		<name>yarn.resourcemanager.webapp.https.address.rm2</name>
+		<value>sht-sgmhadoopnn-02:23189</value>
+	</property>
+
+<property>
+          <name>yarn.log-aggregation-enable</name>
+         <value>true</value>
+</property>
+<property>
+         <name>yarn.log.server.url</name>
+         <value>http://sht-sgmhadoopnn-01:19888/jobhistory/logs</value>
+</property>
+
+<property>
+    <name>yarn.nodemanager.resource.memory-mb</name>
+<value>8192</value>
+</property>
+<property>
+    <name>yarn.scheduler.minimum-allocation-mb</name>
+    <value>1024</value>
+    <discription>单个任务可申请最少内存，默认1024MB</discription>
+ </property>
+
+  <property>
+    <name>yarn.scheduler.maximum-allocation-mb</name>
+    <value>8192</value>
+    <discription>单个任务可申请最大内存，默认8192MB</discription>
+  </property>
+   <property>
+       <name>yarn.nodemanager.resource.cpu-vcores</name>
+       <value>4</value>
+     </property>
+
+</configuration>
+
+8.修改slaves
+[root@sht-sgmhadoopnn-01 hadoop]# vi slaves
+sht-sgmhadoopdn-01
+sht-sgmhadoopdn-02
+sht-sgmhadoopdn-03
+
+9.创建临时文件夹和分发文件夹
+[root@sht-sgmhadoopnn-01 hadoop]# mkdir -p /hadoop/hadoop/tmp
+[root@sht-sgmhadoopnn-01 hadoop]# chmod -R 777 /hadoop/hadoop/tmp
+[root@sht-sgmhadoopnn-01 hadoop]# chown -R root:root /hadoop/hadoop/tmp
+
+[root@sht-sgmhadoopnn-01 hadoop]# scp -r hadoop root@sht-sgmhadoopnn-02:/hadoop
+[root@sht-sgmhadoopnn-01 hadoop]# scp -r hadoop root@sht-sgmhadoopdn-01:/hadoop
+[root@sht-sgmhadoopnn-01 hadoop]# scp -r hadoop root@sht-sgmhadoopdn-02:/hadoop
+[root@sht-sgmhadoopnn-01 hadoop]# scp -r hadoop root@sht-sgmhadoopdn-03:/hadoop
+
+七.安装HBase (HMaster HA)
+1.下载解压hbase-1.1.5-bin.tar.gz
+[root@sht-sgmhadoopnn-01 tmp]# wget http://archive.apache.org/dist/hbase/1.1.5/hbase-1.1.5-bin.tar.gz
+[root@sht-sgmhadoopnn-01 tmp]# tar -xvf hbase-1.1.5-bin.tar.gz
+[root@sht-sgmhadoopnn-01 tmp]# mv /tmp/hbase-1.1.5 /hadoop/hbase
+[root@sht-sgmhadoopnn-01 tmp]# cd /hadoop/hbase/conf
+
+2.修改hbase-env.sh
+export JAVA_HOME="/usr/java/ jdk1.7.0_67"
+export HBASE_CLASSPATH=/hadoop/hadoop/etc/hadoop
+#设置到Hadoop的etc/hadoop目录是用来引导Hbase找到Hadoop,也就是说hbase和hadoop进行关联【必须设置,否则hmaster起不来】
+export HBASE_MANAGES_ZK=false
+#不启用hbase自带的zookeeper
+
+3.修改hbase-site.xml
+<configuration>
+        <!--hbase.rootdir的前端与$HADOOP_HOME/conf/core-site.xml的fs.defaultFS一致 -->
+        <property>
+                <name>hbase.rootdir</name>
+                <value>hdfs://mycluster/hbase</value>
+        </property>
+        <property>
+                <name>hbase.cluster.distributed</name>
+                <value>true</value>
+        </property>
+
+<!--本地文件系统的临时文件夹。可以修改到一个更为持久的目录上。(/tmp会在重启时清除) -->
+        <property>
+                <name>hbase.tmp.dir</name>
+                <value>/hadoop/hbase/tmp</value>
+        </property>
+
+<!--如果只设置单个 Hmaster，那么 hbase.master 属性参数需要设置为 master5:60000 (主机名:60000) -->
+<!--如果要设置多个 Hmaster，那么我们只需要提供端口 60000，因为选择真正的 master 的事情会有 zookeeper 去处理 -->
+        <property>
+                <name>hbase.master</name>
+                <value>60000</value>
+        </property>
+
+<!--这个参数用户设置 ZooKeeper 快照的存储位置，默认值为 /tmp，显然在重启的时候会清空。因为笔者的 ZooKeeper 是独立安装的，所以这里路径是指向了 $ZOOKEEPER_HOME/conf/zoo.cfg 中 dataDir 所设定的位置 -->
+        <property>
+                <name>hbase.zookeeper.property.dataDir</name>
+                <value>/hadoop/zookeeper/data</value>
+        </property>
+
+        <property>
+                <name>hbase.zookeeper.quorum</name>
+                <value>sht-sgmhadoopdn-01,sht-sgmhadoopdn-02,sht-sgmhadoopdn-03</value>
+        </property>
+<!--表示客户端连接 ZooKeeper 的端口 -->
+        <property>
+                <name>hbase.zookeeper.property.clientPort</name>
+                <value>2181</value>
+        </property>
+<!--ZooKeeper 会话超时。Hbase 把这个值传递改 zk 集群，向它推荐一个会话的最大超时时间 -->
+        <property>
+                <name>zookeeper.session.timeout</name>
+                <value>120000</value>
+        </property>
+
+<!--当 regionserver 遇到 ZooKeeper session expired ， regionserver 将选择 restart 而不是 abort -->
+        <property>
+                <name>hbase.regionserver.restart.on.zk.expire</name>
+                <value>true</value>
+        </property>
+</configuration>
+
+4.修改regionservers文件
+sht-sgmhadoopdn-01
+sht-sgmhadoopdn-02
+sht-sgmhadoopdn-03
+
+5. 创建临时文件夹和分发文件夹
+[root@sht-sgmhadoopnn-01 hadoop]# mkdir -p /hadoop/hbase/tmp
+[root@sht-sgmhadoopnn-01 hadoop]# chmod -R 777 /hadoop/hbase/tmp
+[root@sht-sgmhadoopnn-01 hadoop]# chown -R root:root /hadoop/hbase/tmp
+
+[root@sht-sgmhadoopnn-01 hadoop]# scp -r hbase  root@sht-sgmhadoopnn-02:/hadoop
+[root@sht-sgmhadoopnn-01 hadoop]# scp -r hbase  root@sht-sgmhadoopdn-01:/hadoop
+[root@sht-sgmhadoopnn-01 hadoop]# scp -r hbase  root@sht-sgmhadoopdn-02:/hadoop
+[root@sht-sgmhadoopnn-01 hadoop]# scp -r hbase  root@sht-sgmhadoopdn-03:/hadoop
+
+八.启动集群(第一次系统启动,需要初始化)
+另外一种启动方式:http://www.micmiu.com/bigdata/hadoop/hadoop2-cluster-ha-setup/
+
+1.启动zookeeper
+command: ./zkServer.sh start|stop|status
+[root@sht-sgmhadoopdn-01 bin]# ./zkServer.sh start
+JMX enabled by default
+Using config: /hadoop/zookeeper/bin/../conf/zoo.cfg
+Starting zookeeper ... STARTED
+[root@sht-sgmhadoopdn-01 bin]# jps
+2073 QuorumPeerMain
+2106 Jps
+
+[root@sht-sgmhadoopdn-02 bin]# ./zkServer.sh start
+JMX enabled by default
+Using config: /hadoop/zookeeper/bin/../conf/zoo.cfg
+Starting zookeeper ... STARTED
+[root@sht-sgmhadoopdn-02 bin]# jps
+2073 QuorumPeerMain
+2106 Jps
+
+[root@sht-sgmhadoopdn-03 bin]# ./zkServer.sh start
+JMX enabled by default
+Using config: /hadoop/zookeeper/bin/../conf/zoo.cfg
+Starting zookeeper ... STARTED
+[root@sht-sgmhadoopdn-03 bin]# jps
+2073 QuorumPeerMain
+2106 Jps
+
+2.启动hadoop(HDFS+YARN)
+a.格式化前,先在journalnode 节点机器上先启动JournalNode进程
+[root@sht-sgmhadoopdn-01 ~]# cd /hadoop/hadoop/sbin
+[root@sht-sgmhadoopdn-01 sbin]# hadoop-daemon.sh start journalnode
+starting journalnode, logging to /hadoop/hadoop/logs/hadoop-root-journalnode-sht-sgmhadoopdn-03.xxx.cn.out
+[root@sht-sgmhadoopdn-03 sbin]# jps
+16722 JournalNode
+16775 Jps
+15519 QuorumPeerMain
+
+[root@sht-sgmhadoopdn-02 ~]# cd /hadoop/hadoop/sbin
+[root@sht-sgmhadoopdn-02 sbin]# hadoop-daemon.sh start journalnode
+starting journalnode, logging to /hadoop/hadoop/logs/hadoop-root-journalnode-sht-sgmhadoopdn-03.xxx.cn.out
+[root@sht-sgmhadoopdn-03 sbin]# jps
+16722 JournalNode
+16775 Jps
+15519 QuorumPeerMain
+
+[root@sht-sgmhadoopdn-03 ~]# cd /hadoop/hadoop/sbin
+[root@sht-sgmhadoopdn-03 sbin]# hadoop-daemon.sh start journalnode
+starting journalnode, logging to /hadoop/hadoop/logs/hadoop-root-journalnode-sht-sgmhadoopdn-03.xxx.cn.out
+[root@sht-sgmhadoopdn-03 sbin]# jps
+16722 JournalNode
+16775 Jps
+15519 QuorumPeerMain
+
+b.NameNode格式化
+[root@sht-sgmhadoopnn-01 bin]# hadoop namenode -format
+16/02/25 14:05:04 INFO namenode.NameNode: STARTUP_MSG:
+/************************************************************
+STARTUP_MSG: Starting NameNode
+STARTUP_MSG:   host = sht-sgmhadoopnn-01.xxx.cn/172.16.101.55
+STARTUP_MSG:   args = [-format]
+STARTUP_MSG:   version = 2.7.2
+STARTUP_MSG:   classpath =
+……………..
+………………
+16/02/25 14:05:07 INFO namenode.FSNamesystem: dfs.namenode.safemode.threshold-pct = 0.9990000128746033
+16/02/25 14:05:07 INFO namenode.FSNamesystem: dfs.namenode.safemode.min.datanodes = 0
+16/02/25 14:05:07 INFO namenode.FSNamesystem: dfs.namenode.safemode.extension     = 30000
+16/02/25 14:05:07 INFO metrics.TopMetrics: NNTop conf: dfs.namenode.top.window.num.buckets = 10
+16/02/25 14:05:07 INFO metrics.TopMetrics: NNTop conf: dfs.namenode.top.num.users = 10
+16/02/25 14:05:07 INFO metrics.TopMetrics: NNTop conf: dfs.namenode.top.windows.minutes = 1,5,25
+16/02/25 14:05:07 INFO namenode.FSNamesystem: Retry cache on namenode is enabled
+16/02/25 14:05:07 INFO namenode.FSNamesystem: Retry cache will use 0.03 of total heap and retry cache entry expiry time is 600000 millis
+16/02/25 14:05:07 INFO util.GSet: Computing capacity for map NameNodeRetryCache
+16/02/25 14:05:07 INFO util.GSet: VM type       = 64-bit
+16/02/25 14:05:07 INFO util.GSet: 0.029999999329447746% max memory 889 MB = 273.1 KB
+16/02/25 14:05:07 INFO util.GSet: capacity      = 2^15 = 32768 entries
+16/02/25 14:05:08 INFO namenode.FSImage: Allocated new BlockPoolId: BP-1182930464-172.16.101.55-1456380308394
+16/02/25 14:05:08 INFO common.Storage: Storage directory /hadoop/hadoop/data/dfs/name has been successfully formatted.
+16/02/25 14:05:08 INFO namenode.NNStorageRetentionManager: Going to retain 1 images with txid >= 0
+16/02/25 14:05:08 INFO util.ExitUtil: Exiting with status 0
+16/02/25 14:05:08 INFO namenode.NameNode: SHUTDOWN_MSG:
+/************************************************************
+SHUTDOWN_MSG: Shutting down NameNode at sht-sgmhadoopnn-01.xxx.cn/172.16.101.55
+************************************************************/
+c.同步NameNode元数据
+同步sht-sgmhadoopnn-01 元数据到sht-sgmhadoopnn-02
+主要是：dfs.namenode.name.dir，dfs.namenode.edits.dir还应该确保共享存储目录下(dfs.namenode.shared.edits.dir ) 包含NameNode 所有的元数据。
+
+[root@sht-sgmhadoopnn-01 hadoop]# pwd
+/hadoop/hadoop
+ [root@sht-sgmhadoopnn-01 hadoop]# scp -r data/ root@sht-sgmhadoopnn-02:/hadoop/hadoop
+seen_txid                                                                                                     100%    2     0.0KB/s   00:00
+fsimage_0000000000000000000                                                            100%  351     0.3KB/s   00:00
+fsimage_0000000000000000000.md5                                                   100%   62     0.1KB/s   00:00
+VERSION                                                                                                       100%  205     0.2KB/s   00:00
+
+d.初始化ZFCK
+[root@sht-sgmhadoopnn-01 bin]# hdfs zkfc -formatZK
+……………..
+……………..
+16/02/25 14:14:41 INFO zookeeper.ZooKeeper: Client environment:user.home=/root
+16/02/25 14:14:41 INFO zookeeper.ZooKeeper: Client environment:user.dir=/hadoop/hadoop/bin
+16/02/25 14:14:41 INFO zookeeper.ZooKeeper: Initiating client connection, connectString=sht-sgmhadoopdn-01:2181,sht-sgmhadoopdn-02:2181,sht-sgmhadoopdn-03:2181 sessionTimeout=2000 watcher=org.apache.hadoop.ha.ActiveStandbyElector$WatcherWithClientRef@5f4298a5
+16/02/25 14:14:41 INFO zookeeper.ClientCnxn: Opening socket connection to server sht-sgmhadoopdn-01.xxx.cn/172.16.101.58:2181. Will not attempt to authenticate using SASL (unknown error)
+16/02/25 14:14:41 INFO zookeeper.ClientCnxn: Socket connection established to sht-sgmhadoopdn-01.xxx.cn/172.16.101.58:2181, initiating session
+16/02/25 14:14:42 INFO zookeeper.ClientCnxn: Session establishment complete on server sht-sgmhadoopdn-01.xxx.cn/172.16.101.58:2181, sessionid = 0x15316c965750000, negotiated timeout = 4000
+16/02/25 14:14:42 INFO ha.ActiveStandbyElector: Session connected.
+16/02/25 14:14:42 INFO ha.ActiveStandbyElector: Successfully created /hadoop-ha/mycluster in ZK.
+16/02/25 14:14:42 INFO zookeeper.ClientCnxn: EventThread shut down
+16/02/25 14:14:42 INFO zookeeper.ZooKeeper: Session: 0x15316c965750000 closed
+
+e.启动HDFS 分布式存储系统
+集群启动,在sht-sgmhadoopnn-01执行start-dfs.sh
+集群关闭,在sht-sgmhadoopnn-01执行stop-dfs.sh
+#####集群启动############
+[root@sht-sgmhadoopnn-01 sbin]# start-dfs.sh
+16/02/25 14:21:42 WARN util.NativeCodeLoader: Unable to load native-hadoop library for your platform... using builtin-java classes where applicable
+Starting namenodes on [sht-sgmhadoopnn-01 sht-sgmhadoopnn-02]
+sht-sgmhadoopnn-01: starting namenode, logging to /hadoop/hadoop/logs/hadoop-root-namenode-sht-sgmhadoopnn-01.xxx.cn.out
+sht-sgmhadoopnn-02: starting namenode, logging to /hadoop/hadoop/logs/hadoop-root-namenode-sht-sgmhadoopnn-02.xxx.cn.out
+sht-sgmhadoopdn-01: starting datanode, logging to /hadoop/hadoop/logs/hadoop-root-datanode-sht-sgmhadoopdn-01.xxx.cn.out
+sht-sgmhadoopdn-02: starting datanode, logging to /hadoop/hadoop/logs/hadoop-root-datanode-sht-sgmhadoopdn-02.xxx.cn.out
+sht-sgmhadoopdn-03: starting datanode, logging to /hadoop/hadoop/logs/hadoop-root-datanode-sht-sgmhadoopdn-03.xxx.cn.out
+Starting journal nodes [sht-sgmhadoopdn-01 sht-sgmhadoopdn-02 sht-sgmhadoopdn-03]
+sht-sgmhadoopdn-01: journalnode running as process 6348. Stop it first.
+sht-sgmhadoopdn-03: journalnode running as process 16722. Stop it first.
+sht-sgmhadoopdn-02: journalnode running as process 7197. Stop it first.
+16/02/25 14:21:56 WARN util.NativeCodeLoader: Unable to load native-hadoop library for your platform... using builtin-java classes where applicable
+Starting ZK Failover Controllers on NN hosts [sht-sgmhadoopnn-01 sht-sgmhadoopnn-02]
+sht-sgmhadoopnn-01: starting zkfc, logging to /hadoop/hadoop/logs/hadoop-root-zkfc-sht-sgmhadoopnn-01.xxx.cn.out
+sht-sgmhadoopnn-02: starting zkfc, logging to /hadoop/hadoop/logs/hadoop-root-zkfc-sht-sgmhadoopnn-02.xxx.cn.out
+You have mail in /var/spool/mail/root
+
+
+####单进程启动###########
+NameNode(sht-sgmhadoopnn-01, sht-sgmhadoopnn-02):
+hadoop-daemon.sh start namenode
+
+DataNode(sht-sgmhadoopdn-01, sht-sgmhadoopdn-02, sht-sgmhadoopdn-03):
+hadoop-daemon.sh start datanode
+
+JournamNode(sht-sgmhadoopdn-01, sht-sgmhadoopdn-02, sht-sgmhadoopdn-03):
+hadoop-daemon.sh start journalnode
+
+ZKFC(sht-sgmhadoopnn-01, sht-sgmhadoopnn-02):
+hadoop-daemon.sh start zkfc
+
+
+f.验证namenode,datanode,zkfc
+1)	进程
+[root@sht-sgmhadoopnn-01 sbin]# jps
+12712 Jps
+12593 DFSZKFailoverController
+12278 NameNode
+
+[root@sht-sgmhadoopnn-02 ~]# jps
+29714 NameNode
+29849 DFSZKFailoverController
+30229 Jps
+
+[root@sht-sgmhadoopdn-01 ~]# jps
+6348 JournalNode
+8775 Jps
+559 QuorumPeerMain
+8509 DataNode
+
+[root@sht-sgmhadoopdn-02 ~]# jps
+9430 Jps
+9160 DataNode
+7197 JournalNode
+2073 QuorumPeerMain
+
+[root@sht-sgmhadoopdn-03 ~]# jps
+16722 JournalNode
+17369 Jps
+15519 QuorumPeerMain
+17214 DataNode
+
+2)	页面
+sht-sgmhadoopnn-01:
+http://172.16.101.55:50070/
+sht-sgmhadoopnn-02:
+http://172.16.101.56:50070/
+
+g.启动YARN框架
+#####集群启动############
+1)	sht-sgmhadoopnn-01启动Yarn，命令所在目录：$HADOOP_HOME/sbin
+[root@sht-sgmhadoopnn-01 sbin]# start-yarn.sh
+starting yarn daemons
+starting resourcemanager, logging to /hadoop/hadoop/logs/yarn-root-resourcemanager-sht-sgmhadoopnn-01.xxx.cn.out
+sht-sgmhadoopdn-03: starting nodemanager, logging to /hadoop/hadoop/logs/yarn-root-nodemanager-sht-sgmhadoopdn-03.xxx.cn.out
+sht-sgmhadoopdn-02: starting nodemanager, logging to /hadoop/hadoop/logs/yarn-root-nodemanager-sht-sgmhadoopdn-02.xxx.cn.out
+sht-sgmhadoopdn-01: starting nodemanager, logging to /hadoop/hadoop/logs/yarn-root-nodemanager-sht-sgmhadoopdn-01.xxx.cn.out
+
+2)	sht-sgmhadoopnn-02备机启动RM
+[root@sht-sgmhadoopnn-02 sbin]# yarn-daemon.sh start resourcemanager
+starting resourcemanager, logging to /hadoop/hadoop/logs/yarn-root-resourcemanager-sht-sgmhadoopnn-02.xxx.cn.out
+
+
+####单进程启动###########
+1)	ResourceManager(sht-sgmhadoopnn-01, sht-sgmhadoopnn-02)
+yarn-daemon.sh start resourcemanager
+
+2)	NodeManager(sht-sgmhadoopdn-01, sht-sgmhadoopdn-02, sht-sgmhadoopdn-03)
+yarn-daemon.sh start nodemanager
+
+
+######关闭#############
+[root@sht-sgmhadoopnn-01 sbin]# stop-yarn.sh
+#包含namenode的resourcemanager进程，datanode的nodemanager进程
+
+[root@sht-sgmhadoopnn-02 sbin]# yarn-daemon.sh stop resourcemanager
+
+h.验证resourcemanager,nodemanager
+1)	进程
+[root@sht-sgmhadoopnn-01 sbin]# jps
+13611 Jps
+12593 DFSZKFailoverController
+12278 NameNode
+13384 ResourceManager
+
+[root@sht-sgmhadoopnn-02 sbin]# jps
+32265 ResourceManager
+32304 Jps
+29714 NameNode
+29849 DFSZKFailoverController
+
+[root@sht-sgmhadoopdn-01 ~]# jps
+6348 JournalNode
+559 QuorumPeerMain
+8509 DataNode
+10286 NodeManager
+10423 Jps
+
+[root@sht-sgmhadoopdn-02 ~]# jps
+9160 DataNode
+10909 NodeManager
+11937 Jps
+7197 JournalNode
+2073 QuorumPeerMain
+
+[root@sht-sgmhadoopdn-03 ~]# jps
+18031 Jps
+16722 JournalNode
+17710 NodeManager
+15519 QuorumPeerMain
+17214 DataNode
+
+2)	页面
+ResourceManger（Active）：http://172.16.101.55:8088
+ResourceManger（Standby）：http://172.16.101.56:8088/cluster/cluster
+
+
+3.启动HBase
+[root@sht-sgmhadoopnn-01 bin]# start-hbase.sh
+[root@sht-sgmhadoopnn-02 bin]# hbase-daemon.sh start master
+验证是否已经启动hbase集群和验证who is master and who is Backup Master:
+1).进程
+[root@sht-sgmhadoopnn-01 bin]# jps
+20519 NameNode
+18925 Jps
+20872 DFSZKFailoverController
+26810 ResourceManager
+13564 HMaster
+
+[root@sht-sgmhadoopnn-02 logs]# jps
+5265 NameNode
+5449 DFSZKFailoverController
+26319 Jps
+12281 ResourceManager
+21879 HMaster
+[root@sht-sgmhadoopdn-01 bin]# jps
+30488 QuorumPeerMain
+25780 NodeManager
+20286 DataNode
+996 HRegionServer
+6371 Jps
+20399 JournalNode
+### sht-sgmhadoopdn-02,03与01一样
+##查询服务器状态
+[root@sht-sgmhadoopnn-01 bin]# hbase shell
+2016-03-16 22:55:36,551 WARN  [main] util.NativeCodeLoader: Unable to load native-hadoop library for your platform... using builtin-java classes where applicable
+HBase Shell; enter 'help<RETURN>' for list of supported commands.
+Type "exit<RETURN>" to leave the HBase Shell
+Version 1.2.0, r25b281972df2f5b15c426c8963cbf77dd853a5ad, Thu Feb 18 23:01:49 CST 2016
+
+hbase(main):001:0> status
+1 active master, 1 backup masters, 3 servers, 0 dead, 0.6667 average load
+2).查看日志
+
+3).登录zookeeper
+
+4).web页面
+why http://server:60010 web page for the running HBase1.2.0 Master???
+After the 0.98 version port numbers have changed. It is now 16010 instead of 60010). Check this page for general UI troubleshooting: http://hbase.apache.org/book/trouble.tools.html
+http://172.16.101.55:16010/
+http://172.16.101.56:16010/
+
+
+
+
+九.关闭集群
+1.关闭HBase
+[root@sht-sgmhadoopnn-01 bin]# stop-hbase.sh
+#stop 1 active master, 1 backup masters, 3 servers
+2.关闭Hadoop(YARN-->HDFS)
+[root@sht-sgmhadoopnn-01 sbin]# stop-yarn.sh
+ [root@sht-sgmhadoopnn-02 sbin]# yarn-daemon.sh stop resourcemanager
+ [root@sht-sgmhadoopnn-02 sbin]# stop-dfs.sh
+
+3.关闭Zookeeper
+[root@sht-sgmhadoopdn-01 bin]# zkServer.sh stop
+[root@sht-sgmhadoopdn-02 bin]# zkServer.sh stop
+[root@sht-sgmhadoopdn-03 bin]# zkServer.sh stop
+
+十.再次启动集群
+1.启动Zookeeper
+[root@sht-sgmhadoopdn-01 bin]# zkServer.sh start
+[root@sht-sgmhadoopdn-02 bin]# zkServer.sh start
+[root@sht-sgmhadoopdn-03 bin]# zkServer.sh start
+
+2.启动Hadoop(HDFS-->YARN)
+[root@sht-sgmhadoopnn-02 sbin]# start-dfs.sh
+[root@sht-sgmhadoopnn-01 sbin]# start-yarn.sh
+[root@sht-sgmhadoopnn-02 sbin]# yarn-daemon.sh start resourcemanager
+[root@sht-sgmhadoopnn-01 ~]# $HADOOP_HOME/sbin/mr-jobhistory-daemon.sh start historyserver
+
+
+3.启动HBase
+[root@sht-sgmhadoopnn-01 bin]# start-hbase.sh
+[root@sht-sgmhadoopnn-02 bin]# hbase-daemon.sh start master
+
+十一.监控集群
+[root@sht-sgmhadoopnn-01 ~]# hdfs dfsadmin -report
+HDFS:http://172.16.101.55:50070/
+HDFS:http://172.16.101.56:50070/
+
+ResourceManger（Active）：http://172.16.101.55:8088
+ResourceManger（Standby）：http://172.16.101.56:8088/cluster/cluster
+
+  JobHistory:http://172.16.101.55:19888/jobhistory
+
+
+HBase(master): http://172.16.101.55:16010/
+HBase(backup master): http://172.16.101.56:16010/
+
+
+十二.常用脚本及命令
+1.启动集群
+ [root@sht-sgmhadoopdn-01 ~]# $ZOOKEEPER_HOME/bin/zkServer.sh start
+ [root@sht-sgmhadoopdn-02 ~]# $ZOOKEEPER_HOME/bin/zkServer.sh start
+ [root@sht-sgmhadoopdn-03 ~]# $ZOOKEEPER_HOME/bin/zkServer.sh start
+
+ [root@sht-sgmhadoopnn-01 ~]# $HADOOP_HOME/sbin/start-all.sh
+ [root@sht-sgmhadoopnn-02 ~]# $HADOOP_HOME/sbin/yarn-daemon.sh start resourcemanager
+
+ [root@sht-sgmhadoopnn-01 ~]# $HADOOP_HOME/sbin/mr-jobhistory-daemon.sh start historyserver
+
+ [root@sht-sgmhadoopnn-01 ~]# $HBASE_HOME/bin/start-hbase.sh
+ [root@sht-sgmhadoopnn-02 ~]# $HBASE_HOME/bin/hbase-daemon.sh start master
+
+2.关闭集群
+ [root@sht-sgmhadoopnn-02 ~]# $HBASE_HOME/bin/hbase-daemon.sh stop master
+ [root@sht-sgmhadoopnn-01 ~]# $HBASE_HOME/bin/stop-hbase.sh
+
+ [root@sht-sgmhadoopnn-01 ~]# $HADOOP_HOME/sbin/mr-jobhistory-daemon.sh stop historyserver
+
+ [root@sht-sgmhadoopnn-02 ~]# $HADOOP_HOME /sbin/yarn-daemon.sh stop resourcemanager
+ [root@sht-sgmhadoopnn-01 ~]# $HADOOP_HOME /sbin/stop-all.sh
+
+ [root@sht-sgmhadoopdn-01 ~]# $ZOOKEEPER_HOME /bin/zkServer.sh stop
+ [root@sht-sgmhadoopdn-02 ~]# $ZOOKEEPER_HOME /bin/zkServer.sh stop
+ [root@sht-sgmhadoopdn-03 ~]# $ZOOKEEPER_HOME /bin/zkServer.sh stop
+
+
+3.监控集群
+hdfs dfsadmin -report
+ ###web界面
+  Name(Active): http://172.16.101.55:50070/
+  Name(Standby): http://172.16.101.56:50070/
+
+  ResourceManger(Active):http://172.16.101.55:8088
+  ResourceManger(Standby):http://172.16.101.56:8088/cluster/cluster
+
+  JobHistory:http://172.16.101.55:19888/jobhistory
+
+  Master:http://172.16.101.55:16010/
+  Backup Master:http://172.16.101.56:16010/
+
+
+4.单个进程启动/关闭
+hadoop-daemon.sh start|stop  namenode|datanode| journalnode|zkfc
+yarn-daemon.sh start |stop  resourcemanager|nodemanager
+hbase-daemon.sh start|stop master|regionserver
+
+http://blog.chinaunix.net/uid-25723371-id-4943894.html
+
+
+
+十三.附件及参考
+#http://archive-primary.cloudera.com/cdh5/cdh/5/hadoop-2.6.0-cdh5.5.2.tar.gz
+#http://archive-primary.cloudera.com/cdh5/cdh/5/zookeeper-3.4.5-cdh5.5.2.tar.gz
+###不支持snappy,需要参考” 01.重新编译Hadoop 2.7.2源代码,使其支持snappy.txt”
+hadoop : http://mirror.bit.edu.cn/apache/hadoop/common/hadoop-2.7.2/hadoop-2.7.2.tar.gz
+zookeeper :http://mirror.bit.edu.cn/apache/zookeeper/zookeeper-3.4.6/zookeeper-3.4.6.tar.gz
+
+参考:
+Hadoop-2.3.0-cdh5.0.1完全分布式环境搭建(NameNode,ResourceManager HA):
+http://blog.itpub.net/30089851/viewspace-1987620/
+
+如何解决这类问题：The string "--" is not permitted within comments:
+http://blog.csdn.net/free4294/article/details/38681095
+
+SecureCRT连接linux终端中文显示乱码解决办法:
+http://www.cnblogs.com/qi09/archive/2013/02/05/2892922.html
+
+最新Hadoop-2.7.2+hbase-1.2.0+zookeeper-3.4.8 HA高可用集群:
+http://www.w2bc.com/article/103400
+
+Hbase HA 分布式搭建:
+http://www.cnblogs.com/smartloli/p/4513767.html?utm_source=tuicool&utm_medium=referral

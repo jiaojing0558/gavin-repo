@@ -1,0 +1,115 @@
+[root@master ~]# hadoop
+Usage: hadoop [--config confdir] COMMAND
+       where COMMAND is one of:
+  fs                   run a generic filesystem user client
+  version              print the version
+  jar <jar>            run a jar file
+  checknative [-a|-h]  check native hadoop and compression libraries availability
+  distcp <srcurl> <desturl> copy file or directories recursively
+  archive -archiveName NAME -p <parent path> <src>* <dest> create a hadoop archive
+  classpath            prints the class path needed to get the
+                       Hadoop jar and the required libraries
+  daemonlog            get/set the log level for each daemon
+ or
+  CLASSNAME            run the class named CLASSNAME
+
+Most commands print help when invoked w/o parameters.
+
+
+一般我们只用hadoop fs(文件系统命令) 和 hadoop jar(提交jar包至集群).
+
+1.hadoop fs(文件系统命令)
+[root@master ~]# hadoop fs
+Usage: hadoop fs [generic options]
+        [-cat [-ignoreCrc] <src> ...]
+        [-chgrp [-R] GROUP PATH...]
+        [-chmod [-R] <MODE[,MODE]... | OCTALMODE> PATH...]              赋rwx权限
+        [-chown [-R] [OWNER][:[GROUP]] PATH...]                         赋用户:用户组权限
+        [-copyFromLocal <localsrc> ... <dst>]                           复制linux本地文件到HDFS
+        [-copyToLocal [-ignoreCrc] [-crc] <src> ... <localdst>]         复制HDFS文件到linux本地
+        [-count [-q] <path> ...]
+        [-cp <src> ... <dst>]
+        [-df [-h] [<path> ...]]
+        [-du [-s] [-h] <path> ...]
+        [-expunge]
+        [-get [-ignoreCrc] [-crc] <src> ... <localdst>]
+        [-getmerge [-nl] <src> <localdst>]
+        [-help [cmd ...]]
+        [-ls [-d] [-h] [-R] [<path> ...]]                               列出指定HDFS目录
+        [-mkdir [-p] <path> ...]                                        创建HDFS文件夹
+        [-moveFromLocal <localsrc> ... <dst>]
+        [-moveToLocal <src> <localdst>]
+        [-mv <src> ... <dst>]
+        [-put <localsrc> ... <dst>]
+        [-rm [-f] [-r|-R] [-skipTrash] <src> ...]                       删除HDFS文件/文件夹
+        [-rmdir [--ignore-fail-on-non-empty] <dir> ...]
+        [-setrep [-R] [-w] <rep> <path/file> ...]
+        [-stat [format] <path> ...]
+        [-tail [-f] <file>]
+        [-test -[ezd] <path>]
+        [-text [-ignoreCrc] <src> ...]
+        [-touchz <path> ...]
+        [-usage [cmd ...]]
+
+Generic options supported are
+-conf <configuration file>     specify an application configuration file
+-D <property=value>            use value for given property
+-fs <local|namenode:port>      specify a namenode
+-jt <local|jobtracker:port>    specify a job tracker
+-files <comma separated list of files>    specify comma separated files to be copied to the map reduce cluster
+-libjars <comma separated list of jars>    specify comma separated jar files to include in the classpath.
+-archives <comma separated list of archives>    specify comma separated archives to be unarchived on the compute machines.
+
+The general command line syntax is
+bin/hadoop command [genericOptions] [commandOptions]
+
+###以上命令与linux的命令功能相似，
+
+2.其中hadoop fs等价于hdfs dfs
+[root@master ~]# hdfs dfs
+Usage: hadoop fs [generic options]
+        [-cat [-ignoreCrc] <src> ...]
+        [-chgrp [-R] GROUP PATH...]
+        [-chmod [-R] <MODE[,MODE]... | OCTALMODE> PATH...]
+        [-chown [-R] [OWNER][:[GROUP]] PATH...]
+        [-copyFromLocal <localsrc> ... <dst>]
+        [-copyToLocal [-ignoreCrc] [-crc] <src> ... <localdst>]
+        [-count [-q] <path> ...]
+        [-cp <src> ... <dst>]
+        [-df [-h] [<path> ...]]
+        [-du [-s] [-h] <path> ...]
+        [-expunge]
+        [-get [-ignoreCrc] [-crc] <src> ... <localdst>]
+        [-getmerge [-nl] <src> <localdst>]
+        [-help [cmd ...]]
+        [-ls [-d] [-h] [-R] [<path> ...]]
+        [-mkdir [-p] <path> ...]
+        [-moveFromLocal <localsrc> ... <dst>]
+        [-moveToLocal <src> <localdst>]
+        [-mv <src> ... <dst>]
+        [-put <localsrc> ... <dst>]
+        [-rm [-f] [-r|-R] [-skipTrash] <src> ...]
+        [-rmdir [--ignore-fail-on-non-empty] <dir> ...]
+        [-setrep [-R] [-w] <rep> <path/file> ...]
+        [-stat [format] <path> ...]
+        [-tail [-f] <file>]
+        [-test -[ezd] <path>]
+        [-text [-ignoreCrc] <src> ...]
+        [-touchz <path> ...]
+        [-usage [cmd ...]]
+
+Generic options supported are
+-conf <configuration file>     specify an application configuration file
+-D <property=value>            use value for given property
+-fs <local|namenode:port>      specify a namenode
+-jt <local|jobtracker:port>    specify a job tracker
+-files <comma separated list of files>    specify comma separated files to be copied to the map reduce cluster
+-libjars <comma separated list of jars>    specify comma separated jar files to include in the classpath.
+-archives <comma separated list of archives>    specify comma separated archives to be unarchived on the compute machines.
+
+The general command line syntax is
+bin/hadoop command [genericOptions] [commandOptions]
+
+3.hadoop jar(提交jar包至集群).
+[root@ master ~]# hadoop jar
+RunJar jarFile [mainClass] args...
