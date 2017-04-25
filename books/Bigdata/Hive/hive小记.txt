@@ -1,0 +1,54 @@
+1.函数:
+show function;
+desc function upper;
+desc function extended upper;
+
+
+2.UDF:
+UDF:一进一出
+UDAF:多进一出
+UDTF:一进多出
+
+	方式1:只有当前session有效(弊端)
+	add jar xxx.jar;
+	Create temporary function sayhello as 'com.hadoop.hive.sayhello';
+	select sayhello('xiaowang') from emp;
+
+	方式2:在hive home目录下创建auxlib目录，拷贝jar包到该文件，可以节省一步操作（add jar），
+	直接创建function就行，但是也存在单个session问题
+	cd hive_home
+	mkdir auxlib
+	cp /tmp/xxx.jar auxlib/
+	Create temporary function sayhello as 'com.hadoop.hive.sayhello';
+	select sayhello('xiaowang') from emp;
+
+	方式3:永久性函数(该jar一定存放到hdfs上，该方式通过show functions并不能看到.)
+	Create  function sayhello as 'com.hadoop.hive.sayhello';
+	USING JAR 'hdfs://hadoop00:8020/lib/xxx.jar'
+
+
+	方式4:修改hive源码
+	a.在FunctionRegistry.java添加
+
+	import com.hadoop.hive.sayhello;
+	system.registerUDF("syshello",com.hadoop.hive.sayhello,false);
+
+	b.编译
+	mvn clean package -Phadoop-2,dist
+
+	c.替换hive-exec.jar
+
+
+
+
+3.常用的访问的hive方式:
+a.hive
+b.hiveserver2 (thriftserver)
+c.WebUI:HUE、Zeppelin
+
+启动客户端: beeline -u jdbc:hive2://192.168.33.01:10000/default -n hadoop
+hadoop:指的是hiveserver2服务运行的那台机器的用户名
+
+使用JDBC访问HIVE表时,一定要先启动HiveServer2.(和metastore 没有关系)
+
+http://blog.itpub.net/30089851/viewspace-2117921/
