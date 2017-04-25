@@ -1,0 +1,44 @@
+Master节点Log篇
+1.   WARN org.apache.hadoop.hdfs.server.common.Util: Path /usr/mywind/name should be specified as a URI in configuration files. Please update hdfs configuration.
+问题定位：hdfs-site.xml
+问题原因：
+1)   不合规范的URI格式
+解决办法：
+1)   把dfs.namenode.name.dir、dfs.datanode.data.dir的原路径格式如/usr/mywind/name改成file:/usr/mywind/name，即使用完全路径。
+2.   INFO org.apache.hadoop.ipc.Server: IPC Server handler 2 on 9000, call org.apache.hadoop.hdfs.protocol.ClientProtocol.addBlock from 192.168.8.184:39050 Call#6 Retry#0 java.io.IOException: File /hbase/.tmp/hbase.version could only be replicated to 0 nodes instead of minReplication (=1).  There are 0 datanode(s) running and no node(s) are excluded in this operation.
+问题定位：datanode
+问题原因：
+1)   datanode没有启动
+解决办法：
+1)   去Slave节点查看Log，排除错误，确保datanode正确启动起来（可通过jps命令查看启动状态）。
+3.   WARN org.apache.hadoop.hdfs.server.common.Storage: Storage directory /mywind/name does not exist 2014-11-24 08:19:02,555 WARN org.apache.hadoop.hdfs.server.namenode.FSNamesystem: Encountered exception loading fsimage org.apache.hadoop.hdfs.server.common.InconsistentFSStateException: Directory /mywind/name is in an inconsistent state: storage directory does not exist or is not accessible.
+问题定位：hdfs-site.xml
+问题原因：
+1)   错误的URI格式
+解决办法：
+1)   把dfs.namenode.name.dir、dfs.datanode.data.dir的原路径格式如file://usr/mywind/name改成file:/usr/mywind/name，即使用完全路径。
+ 
+Slave节点Log篇
+4.   WARN org.apache.hadoop.hdfs.server.common.Util: Path /usr/mywind/data should be specified as a URI in configuration files. Please update hdfs configuration.
+问题定位：hdfs-site.xml
+问题原因：
+1)   不合规范的URI格式
+解决办法：
+2)   把dfs.namenode.name.dir、dfs.datanode.data.dir的原路径格式如/usr/mywind/name改成file:/usr/mywind/name，即使用完全路径。
+ 
+5.   WARN org.apache.hadoop.hdfs.server.datanode.DataNode: Problem connecting to server: slave1.mywind.com.cn/192.168.8.183:9000
+问题定位：core-site.xml
+问题原因：
+1)   不正确的HDFS地址
+2)   Master节点或者Slave节点防火墙没有关闭
+解决办法：
+1)   把core-site.xml中的fs.defaultFS的value的IP或域名改成主节点的IP地址或域名。
+2)   使用telnet master 9000命令测试一下主节点的端口是否可以连接，如果不可以连接，则可能是主节点或者从节点的防火墙启用了，需要把它关闭。
+ 
+6.   FATAL org.apache.hadoop.hdfs.server.datanode.DataNode: Initialization failed for Block pool (Datanode Uuid unassigned) service to master/192.168.8.184:9000. Exiting. java.io.IOException: Incompatible clusterIDs in /usr/mywind/data: namenode clusterID = CID-e6addb58-7fe2-47ea-9592-0033053a90f9; datanode clusterID = CID-d5961300-954e-4860-96b5-95b2b9634b77
+问题定位：所有namenode目录、所有datanode目录、从节点临时目录
+问题原因：
+1)   主节点的namenode clusterID与从节点的datanode clusterID不一致
+2)   多次格式化了namenode跟datanode之后的结果，格式化之后从节点生成了新的ID，造成不一致
+解决办法：
+1)   在格式化之前，先把所有的服务停掉（stop-dfs.sh、stop-yarn.sh或者stop-all.sh），确保都停掉了之后，分别到所有节点的namenode目录、datanode目录、临时目录，把以上目录里面的所有内容都删除掉。然后再重新启动就可以了。

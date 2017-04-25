@@ -1,0 +1,37 @@
+<property>
+      <name>mapreduce.map.java.opts</name>
+      <value>-Xmx1024m -XX:-UseGCOverheadLimit</value>
+</property>
+<property>
+      <name>mapreduce.map.memory.mb</name>
+      <value>1280</value>
+</property>
+<property>
+      <name>mapreduce.reduce.java.opts</name>
+      <value>-Xmx1024m -XX:-UseGCOverheadLimit</value>
+</property>
+<property>
+      <name>mapreduce.reduce.memory.mb</name>
+      <value>1280</value>
+ </property>
+
+
+<property>
+   	<name>yarn.nodemanager.resource.memory-mb</name>
+	<value>8192</value>
+</property>
+<property>
+    	<name>yarn.scheduler.minimum-allocation-mb</name>
+   	<value>1024</value>
+  	<discription>单个任务可申请最少内存，默认1024MB</discription>
+</property>
+
+ <property>
+     	<name>yarn.scheduler.maximum-allocation-mb</name>
+    	<value>8192</value>
+    	<discription>单个任务可申请最大内存，默认8192MB</discription>
+</property>
+<property>
+       	<name>yarn.nodemanager.resource.cpu-vcores</name>
+       	<value>4</value>
+</property>
