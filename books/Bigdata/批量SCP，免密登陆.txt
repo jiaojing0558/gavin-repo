@@ -1,0 +1,44 @@
+#!/bin/bash
+# ssh免密登录批处理
+# Bu sure the file names nodes must be placed in the same dictory of the script
+PASSWORD=hadoop
+
+auto_ssh_copy_id() {
+    expect -c "set timeout -1;
+        spawn ssh-copy-id $1;
+        expect {
+            *(yes/no)* {send -- yes\r;exp_continue;}
+            *assword:* {send -- $2\r;exp_continue;}
+            eof        {exit 0;}
+        }";
+}
+
+cat nodes | while read host
+do
+{
+    auto_ssh_copy_id $host $PASSWORD
+}&wait
+done
+
+# scp批处理(需要同级目录下的nodes文件 不能包含master)
+#!/bin/bash
+cat nodes | while read host
+do
+{
+    scp -r $1 $host:$2
+}&wait
+done
+
+# 使用示例：./scp.sh /etc/sysctl.conf /etc/
+# ./ssh.sh "sysctl -p"
+# ssh批处理
+#!/bin/bash
+cat nodes | while read host
+do
+{
+    ssh $host $1
+}&wait
+done
+
+
+
