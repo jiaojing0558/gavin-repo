@@ -1,0 +1,98 @@
+下载：
+https://edelivery.oracle.com/EPD/Search/handle_go
+MySQL Database 5.6.20 TAR for Generic Linux (glibc2.5) x86 (64bit)	 V46615-01	 301M
+
+1、删除
+rpm -ev --nodeps MySQL-client-advanced
+rpm -ev --nodeps MySQL-devel-advanced
+rpm -ev --nodeps MySQL-server-advanced
+
+2、解压
+tar xvf mysql-advanced-5.6.20-linux-glibc2.5-x86_64.tar.gz -C /usr/local
+ln -sv mysql-advanced-5.6.20-linux-glibc2.5-x86_64 /usr/local/mysql
+
+3、用户
+groupadd -r -g 306 mysql           #-r表示是伪用户，只是用来运行mysql程序，不能登录系统  
+useradd -g 306  -r  -u 306 mysql
+
+4、path
+[root@OELX64 mysql]# cat ~/.bash_profile 
+... ...
+PATH=$PATH:/usr/local/mysql/bin
+export PATH
+
+5、my.cnf
+chown -R mysql.mysql /usr/local/mysql/*
+
+cp my.cnf /etc/my.cnf
+cat /etc/my.cnf
+[mysqld]
+
+basedir                        = /usr/local/mysql
+datadir                        = /usr/local/mysql/user_3306/data
+tmpdir                         = /usr/local/mysql/user_3306/tmp
+socket                         = /tmp/user_3306.sock
+pid_file                       = mysql.pid
+log_error                      = error.log
+user                           = mysql
+port                           = 3306
+server_id                      = 023306
+
+explicit_defaults_for_timestamp = true
+sql_mode=NO_ENGINE_SUBSTITUTION,STRICT_TRANS_TABLES
+
+[client]
+socket                         = /tmp/user_3306.sock
+user                           = mysql
+port                           = 3306
+
+
+6、建库
+rm /usr/local/mysql/user_3306/ -rf
+mkdir /usr/local/mysql/user_3306/data -p
+mkdir /usr/local/mysql/user_3306/logs -p
+mkdir /usr/local/mysql/user_3306/tmp -p
+chown -R mysql.mysql /usr/local/mysql/*
+
+cd /usr/local/mysql/user_3306/data/
+openssl genrsa -out private_key.pem 1024
+openssl rsa -in private_key.pem -pubout > public_key.pem
+chmod 444 public_key.pem
+chmod 444 private_key.pem
+chown mysql:mysql public_key.pem
+chown mysql:mysql private_key.pem
+
+cd /usr/local/mysql
+# 必须在mysql目录下执行
+scripts/mysql_install_db --user=mysql  --defaults-file=/etc/my.cnf
+cat user_3306/data/error.log
+
+cd /usr/local/mysql/user_3306/ 
+cp /usr/local/mysql/support-files/mysql.server .
+./mysql.server start
+
+7、更改密码
+[root@DG user_3306]# /usr/local/mysql/bin/mysqladmin -u root password 'xxxx'
+Warning: Using a password on the command line interface can be insecure.
+
+8、使用
+[root@DG user_3306]# mysql -uroot -pxxxx
+
+mysql> show databases;
++--------------------+
+| Database           |
++--------------------+
+| information_schema |
+| mysql              |
+| performance_schema |
+| test               |
++--------------------+
+4 rows in set (0.00 sec)
+
+
+8、配制服务
+cp support-files/mysql.server /etc/init.d/mysqld
+ls -l /etc/init.d/mysqld
+chkconfig --add mysqld
+chkconfig mysqld off
+chkconfig --list mysqld
