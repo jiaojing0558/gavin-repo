@@ -14,6 +14,7 @@
 
 *.cs     text diff=csharp eol=crlf
 *.java   text diff=java eol=crlf
+*.scala   text diff=scala eol=crlf
 *.html   text diff=html eol=crlf
 *.htm    text diff=htm eol=lf
 *.jsp    text diff=jsp eol=crlf
@@ -25,3 +26,6 @@
 *.sql    text eol=crlf
 *.ktr    text eol=crlf
 *.kjb    text eol=crlf
+*.iml    text eol=crlf
+*.ipr    text eol=crlf
+*.iws    text eol=crlf
